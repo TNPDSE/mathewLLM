@@ -15,7 +15,8 @@ class Settings:
     INTERNAL_API_KEY: str = os.getenv("INTERNAL_API_KEY")
     AUDIT_FILE: str = os.getenv("AUDIT_FILE")
     AUDIT_FILE = Path.cwd() / "app" / "audit_qa_with_category_desc.json"
-
+    API_URL = os.getenv("API_URL")
+    RESET_URL = os.getenv("RESET_URL")
 
 settings = Settings()
 

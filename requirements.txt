@@ -1,4 +1,8 @@
+anthropic
 fastapi
 uvicorn
-anthropic[azure]
+streamlit
+requests
+python-dotenv
 pydantic
+python-multipart

@@ -1,0 +1,12 @@
+venv
+__pycache__
+.git
+.gitignore
+
+audit_qa.log
+
+*.pyc
+*.pyo
+*.pyd
+
+.env.local
