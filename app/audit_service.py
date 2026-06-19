@@ -1,9 +1,7 @@
 import json
 import logging
-from pathlib import Path
 from typing import List
 import re
-from unittest import result
 from anthropic import AnthropicFoundry
 from pydantic import BaseModel, ValidationError
 from app.utils import settings
@@ -94,6 +92,37 @@ def clean_json_response(text: str) -> str:
 
     return text.strip()
 
+def is_valid_svg(svg: str) -> bool:
+
+    svg = svg.strip()
+
+    return (
+        svg.startswith("<svg")
+        and svg.endswith("</svg>")
+    )
+
+def clean_svg(svg_text: str) -> str:
+
+    if not svg_text:
+        return ""
+
+    svg_text = svg_text.strip()
+
+    svg_text = re.sub(
+        r"^```(?:svg|xml)?\s*",
+        "",
+        svg_text,
+        flags=re.IGNORECASE
+    )
+
+    svg_text = re.sub(
+        r"\s*```$",
+        "",
+        svg_text
+    )
+
+    return svg_text.strip()
+
 # =====================================================
 # Prompt Builder
 # =====================================================
@@ -175,13 +204,24 @@ Rules:
    - Do not use markdown
    - Do not use base64
 
+8. If svg_string is populated:
+    - svg_string must contain ONLY raw SVG markup.
+    - Do not wrap SVG in markdown code fences.
+    - Do not use ```svg or ```xml.
+    - svg_string must start with <svg and end with </svg>.
+    - The root svg element must include:
+    - width="100%"
+    - height="400"
+    - a valid viewBox
+    - Use readable labels and ensure text does not overlap.
+    - Use a modern professional visual style suitable for business dashboards.
  
-8. Response MUST contain JSON only. Do NOT wrap the JSON in markdown.
+9. Response MUST contain JSON only. Do NOT wrap the JSON in markdown.
 Do NOT use:
 ```json
 ...
 
-9. Do not output any text outside JSON.
+10. Do not output any text outside JSON.
 """
 
 
@@ -265,6 +305,10 @@ def ask_audit_question(user_question: str) -> dict:
             validated = AuditResponse.model_validate(parsed)
             result = validated.model_dump()
             LAST_INTERACTION["question"] = user_question
+            result["svg_string"] = clean_svg(result["svg_string"])
+            if result["svg_string"] and not is_valid_svg(result["svg_string"]):
+                logger.error(f"Invalid SVG generated: {result['svg_string'][:500]}")
+                result["svg_string"] = ""
             LAST_INTERACTION["response"] = result
 
             return result
