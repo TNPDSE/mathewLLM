@@ -48,8 +48,6 @@ class AuditResponse(BaseModel):
     LLM_answer: str
     svg_string: str
     status: str
-    reference: List[Reference]
-
 
 # =====================================================
 # Load Audit Once
@@ -169,7 +167,7 @@ This is a summary request.
 Return an EXECUTIVE SUMMARY ONLY.
 
 Constraints:
-- Maximum 500 words.
+- Maximum 1000 words.
 - Maximum 10 bullet points.
 - Group findings by category.
 - Focus only on recurring themes.
@@ -201,14 +199,7 @@ Result Schema:
 {{
   "LLM_answer": "string",
   "svg_string": "string",
-  "status": "success",
-  "reference": [
-    {{
-      "audit_id": "string",
-      "question_number": 0,
-      "question": "string"
-    }}
-  ]
+  "status": "success"
 }}
 
 Rules:
@@ -225,8 +216,7 @@ Rules:
 {{
   "LLM_answer": "No information found in the audit.",
   "svg_string": "",
-  "status": "not_found",
-  "reference": []
+  "status": "not_found"
 }}
 
 6. svg_string must be empty unless the user explicitly requests:
@@ -345,8 +335,7 @@ def ask_audit_question(user_question: str) -> dict:
             return {
                 "LLM_answer": "Model returned invalid JSON.",
                 "svg_string": "",
-                "status": "error",
-                "reference": []
+                "status": "error"
             }
 
         try:
@@ -377,8 +366,7 @@ def ask_audit_question(user_question: str) -> dict:
             return {
                 "LLM_answer": "Response schema validation failed.",
                 "svg_string": "",
-                "status": "error",
-                "reference": []
+                "status": "error"
             }
 
     except Exception as e:
@@ -388,6 +376,27 @@ def ask_audit_question(user_question: str) -> dict:
         return {
             "LLM_answer": str(e),
             "svg_string": "",
-            "status": "error",
-            "reference": []
+            "status": "error"
         }
+
+
+# {{
+#   "LLM_answer": "string",
+#   "svg_string": "string",
+#   "status": "success",
+#   "reference": [
+#     {{
+#       "audit_id": "string",
+#       "question_number": 0,
+#       "question": "string"
+#     }}
+#   ]
+# }}
+
+# 5. If information is unavailable return EXACTLY:
+# {{
+#   "LLM_answer": "No information found in the audit.",
+#   "svg_string": "",
+#   "status": "not_found",
+#   "reference": []
+# }}
