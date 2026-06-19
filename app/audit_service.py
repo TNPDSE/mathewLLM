@@ -137,12 +137,48 @@ def build_prompt(user_question: str) -> str:
     ):
         previous_context = f"""
 
-    PREVIOUS USER QUESTION:
-    {LAST_INTERACTION['question']}
+PREVIOUS USER QUESTION:
+{LAST_INTERACTION['question']}
 
-    PREVIOUS ASSISTANT RESPONSE:
-    {json.dumps(LAST_INTERACTION['response'])}
-    """
+PREVIOUS ASSISTANT RESPONSE:
+{json.dumps(LAST_INTERACTION['response'])}
+"""
+
+    SUMMARY_KEYWORDS = [
+        "summary",
+        "consolidated",
+        "overall",
+        "all audits",
+        "executive summary"
+    ]
+
+    is_summary_request = any(
+        keyword in user_question.lower()
+        for keyword in SUMMARY_KEYWORDS
+    )
+
+    summary_instruction = ""
+
+    if is_summary_request:
+        summary_instruction = """
+
+IMPORTANT:
+
+This is a summary request.
+
+Return an EXECUTIVE SUMMARY ONLY.
+
+Constraints:
+- Maximum 500 words.
+- Maximum 10 bullet points.
+- Group findings by category.
+- Focus only on recurring themes.
+- Focus only on major action plans.
+- Do NOT enumerate every audit.
+- Do NOT enumerate every question.
+- Keep the answer concise.
+
+"""
 
     return f"""
 You are an Audit QA Assistant.
@@ -156,6 +192,8 @@ PREVIOUS INTERACTION:
 
 USER QUESTION:
 {user_question}
+
+{summary_instruction}
 
 
 Result Schema:
@@ -222,6 +260,10 @@ Do NOT use:
 ...
 
 10. Do not output any text outside JSON.
+
+12. Ensure JSON is COMPLETE and CLOSED.
+Do not truncate output.
+If nearing token limit, STOP early and close JSON properly.
 """
 
 
@@ -237,7 +279,7 @@ def ask_audit_question(user_question: str) -> dict:
 
         response = client.messages.create(
             model=DEPLOYMENT_NAME,
-            max_tokens=7000,
+            max_tokens=5000,
             timeout= 300,
             temperature=0.0,
             messages=[
@@ -247,6 +289,8 @@ def ask_audit_question(user_question: str) -> dict:
                 }
             ]
         )
+
+        stop_reason = getattr(response, "stop_reason", None)
 
         response_text = response.content[0].text
 
@@ -271,6 +315,8 @@ def ask_audit_question(user_question: str) -> dict:
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,
                     "total_tokens": total_tokens,
+                    "stop_reason": stop_reason,
+                    "response_length": len(response_text),
                     "status": "success"
                 }
             )
@@ -281,14 +327,17 @@ def ask_audit_question(user_question: str) -> dict:
             cleaned_response = clean_json_response(response_text)
             parsed = json.loads(cleaned_response)
 
-        except Exception:
+        except Exception as e:
 
             logger.error(
                 json.dumps(
                     {
                         "question": user_question,
                         "status": "invalid_json",
-                        "raw_response": response_text
+                        "error": str(e),
+                        "stop_reason": getattr(response, "stop_reason", None),
+                        "response_length": len(response_text),
+                        "response_preview": response_text[:5000]
                     }
                 )
             )
